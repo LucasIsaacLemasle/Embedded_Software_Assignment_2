@@ -13,7 +13,7 @@
 #define error_LED 16 // output
 #define push_button 23 // input
 #define square_reader 35 // input
-#define analog_reader 34 // input
+#define analog_reader 14 // input
 
 /* Initialisation of the variables for all the tasks */
 
@@ -38,7 +38,6 @@ void task6();
 void task7();
 void task8();
 void task9();
-void PeriodSquare();
 void Cycle();
 
 // Period of each task in milliseconds
@@ -57,9 +56,6 @@ int Counter = 0;
 int previousTime = micros();
 int currentTime = micros();
 
-int loopBegin = 0;
-int loopEnd = 0;
-
 
 /* ============================ */
 /*    Functions of the tasks    */
@@ -68,7 +64,11 @@ int loopEnd = 0;
 // --------- TASK 1 --------- // 
 
 void task1(){
-  //Serial.println("Task 1");
+
+  /* 
+   *  Just turn on a led during 50 µs 
+   *  and turn it off
+   */
   digitalWrite(LED, HIGH);
   delayMicroseconds(50);
   digitalWrite(LED, LOW);
@@ -77,7 +77,11 @@ void task1(){
 // --------- TASK 2 --------- //
 
 void task2(){
-  //Serial.println("Task 2");
+
+  /* Read if the button is pressed or not 
+   *  and change the variable depending of the 
+   *  results
+   */
   if (digitalRead(push_button)){
     monitor_task2 = true;
   }
@@ -89,53 +93,47 @@ void task2(){
 // --------- TASK 3 --------- //
 
 void task3(){
-  //Serial.println("Task 3");
-  /*
-  int high_state = pulseIn(square_reader,HIGH);
-  int low_state = pulseIn(square_reader,LOW);
-  periodTask3 = (high_state + low_state);
-  */
+
+  /* calculate the average of a square wave signal
+   */
+   
+  int square_state = 0;
+  int count_time_square = 0;
   
+  square_state = digitalRead(square_reader);
+  while(digitalRead(square_reader)==square_state){}
+  square_state = digitalRead(square_reader);
+  while(digitalRead(square_reader)==square_state){
+    delayMicroseconds(1);
+    count_time_square ++;
+  }
+  periodTask3 = 2*count_time_square;  
   frecuencyTask3 = (float) (1000000/periodTask3);
-  Serial.print("Period = ");
-  Serial.println(periodTask3);
-  Serial.print("Frecuency = ");
-  Serial.println(frecuencyTask3);
-
 }
-
-void PeriodSquare(){ 
-
-  // use an interruption to calculate the time when the 
-  // square begins to rise and save the previous to obtain the time
-  // difference for those two
-  
-  previousTime = currentTime;
-  currentTime = micros();
-  Serial.println("The interrupt is activated !!! ");
-  periodTask3 = (currentTime - previousTime);
-}
-
 
 // --------- TASK 4 --------- //
 
 void task4(){
-  //Serial.println("Task 4");
-  //Serial.println(analogRead(analog_reader));
+
+  /* We read the value of an analog entrance, 
+   *  and save it in an array of 4 elements 
+   *  to be used in the next task
+   */
+  
   for(int i=1; i<4; i++){
     analog_value_task4[i] = analog_value_task4[i+1];
   }
   analog_value_task4[4] = analogRead(analog_reader);
-  
-  Serial.print("Analog value = ");
-  Serial.println(analogRead(analog_reader));
-  
 }
 
 // --------- TASK 5 --------- //
 
 void task5(){
-  //Serial.println("Task 5");
+
+  /* We calculate the average of the four values 
+   *  saved in an array
+   */
+  
   average_task5 = 0;
   for(int i=1; i<5; i++){
     average_task5 = average_task5 + analog_value_task4[i];
@@ -146,7 +144,11 @@ void task5(){
 // --------- TASK 6 --------- //
 
 void task6(){
-  //Serial.println("Task 6");
+ 
+  /* We repeat 1000 time the the command
+   *  __asm__ __volatile__ ("nop");
+   */
+  
   for(int i=0; i<1000; i++){
     __asm__ __volatile__ ("nop");
   }
@@ -155,7 +157,12 @@ void task6(){
 // --------- TASK 7 --------- //
 
 void task7(){
-  //Serial.println("Task 7");
+ 
+  /*If the value of the readed tension
+   * is more than 3.3/2, we activate the variable
+   * error_code
+   */
+  
   if(analogRead(analog_reader) > half_max){
     error_code = 1;
   }
@@ -168,7 +175,11 @@ void task7(){
 // --------- TASK 8 --------- //
 
 void task8(){ 
-  //Serial.println("Task 8");
+
+  /* If there the variable error_code is activated
+   *  then we turn on a LED
+   */
+   
   if(error_code){
     digitalWrite(error_LED,HIGH);
   }
@@ -180,7 +191,10 @@ void task8(){
 // --------- TASK 9 --------- //
 
 void task9(){ 
-  /*Serial.println("Task 9");
+
+  /*  We print all the data we register 
+   *  in the previous tasks  
+   */   
   
   Serial.print("Pushbutton value : ");
   Serial.println(monitor_task2);
@@ -189,13 +203,14 @@ void task9(){
   Serial.print("Filtered analogue input value = ");
   Serial.println(average_task5);
 
-  */
 }
 
+/* ================================================================== */
+/*    Function called every 1 ms by a Ticker to schedule the tasks    */
+/* ================================================================== */
+
 void Cycle(){
-  
   Counter++;
-  
   if(Counter % TimeTask1 == 0) task1(); 
   if(Counter % TimeTask2 == 0) task2();
   if(Counter % TimeTask3 == 0) task3();
@@ -205,13 +220,12 @@ void Cycle(){
   if(Counter % TimeTask7 == 0) task7();
   if(Counter % TimeTask8 == 0) task8();
   if(Counter % TimeTask9 == 0) task9();
-
 }
 
 
-/* ==================================== */
-/*    Definition of INPUT and OUTPUT    */
-/* ==================================== */
+/* =================================================== */
+/*    Definition of INPUT and OUTPUT and the TICKER    */
+/* =================================================== */
 
 void setup() {
   Serial.begin(115200); 
@@ -221,11 +235,6 @@ void setup() {
   pinMode(analog_reader,INPUT);
   pinMode(error_LED,OUTPUT);
   cycleTicker.attach_ms(1,Cycle);
-  attachInterrupt(digitalPinToInterrupt(square_reader),PeriodSquare,CHANGE);
 }
-
-/* ====================================== */
-/*    Call and Scheduling of the tasks    */
-/* ====================================== */
 
 void loop() {}
